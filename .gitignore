@@ -219,3 +219,6 @@ __marimo__/
 
 # Network topology documentation (contains sensitive info)
 network-topology.md
+
+# AI Agent development guide (local only)
+AGENTS.md

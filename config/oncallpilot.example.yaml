@@ -1,0 +1,34 @@
+# OnCallPilot example configuration
+# Copy this file and set ONCALLPILOT_CONFIG to point to it.
+
+app:
+  log_level: info
+  api:
+    host: "0.0.0.0"
+    port: 8080
+
+datasources:
+  postgres:
+    url_env: POSTGRES_URL
+  redis:
+    url_env: REDIS_URL
+  prometheus:
+    url: "http://prometheus:9090"
+  loki:
+    url: "http://loki:3100"
+
+llm:
+  base_url: "https://api.openai.com/v1"
+  api_key_env: OPENAI_API_KEY
+  model: "gpt-4.1"
+
+agent:
+  max_tool_steps: 10
+  hard_step_cap: 20
+  tool_failure_disable_threshold: 3
+
+worker:
+  arq:
+    queue: "oncallpilot:jobs"
+    job_timeout_seconds: 600
+    max_jobs: 10
