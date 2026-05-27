@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Network topology documentation (contains sensitive info)
+network-topology.md
