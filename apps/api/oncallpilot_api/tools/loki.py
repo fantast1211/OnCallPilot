@@ -47,7 +47,7 @@ def _parse_duration(duration: str) -> int:
     return int(m.group(1)) * _DURATION_MULTIPLIERS[m.group(2)]
 
 
-def _check_loki_response(body: dict[str, Any]) -> ToolResult | None:
+def _check_loki_response(body: dict[str, Any], tool_name: str) -> ToolResult | None:
     """Return an error ToolResult if Loki reported a failure, else None."""
     if body.get("status") == "error":
         error = body.get("error", "unknown Loki error")
@@ -55,6 +55,7 @@ def _check_loki_response(body: dict[str, Any]) -> ToolResult | None:
             status="error",
             data=body,
             summary=f"Loki error: {error}",
+            tool_name=tool_name,
             error_message=error,
         )
     return None
@@ -66,6 +67,7 @@ async def _query_range(
     start: str,
     end: str,
     limit: int = 100,
+    tool_name: str = "loki.query_range",
 ) -> ToolResult:
     """Shared helper: execute a Loki query_range and return a ToolResult."""
     params: dict[str, str] = {
@@ -83,10 +85,11 @@ async def _query_range(
             status="error",
             data=None,
             summary=f"Loki request failed: {str(exc)[:200]}",
+            tool_name=tool_name,
             error_message=str(exc),
         )
 
-    if err := _check_loki_response(body):
+    if err := _check_loki_response(body, tool_name):
         return err
 
     data = body.get("data")
@@ -94,6 +97,7 @@ async def _query_range(
         status="success",
         data=data,
         summary=_build_stream_summary(data),
+        tool_name=tool_name,
     )
 
 
@@ -132,7 +136,7 @@ async def query_logs_by_service(
         ToolResult with Loki streams data.
     """
     query = f'{{{loki_label}="{service}"}}'
-    return await _query_range(client, query, start, end, limit)
+    return await _query_range(client, query, start, end, limit, tool_name="loki.query_logs_by_service")
 
 
 async def query_error_logs(
@@ -159,7 +163,7 @@ async def query_error_logs(
         ToolResult with filtered Loki streams data.
     """
     query = f'{{{loki_label}="{service}"}} |~ "{_ERROR_PATTERN}"'
-    return await _query_range(client, query, start, end, limit)
+    return await _query_range(client, query, start, end, limit, tool_name="loki.query_error_logs")
 
 
 async def query_logs_around_time(
@@ -194,7 +198,7 @@ async def query_logs_around_time(
     end = str(ts_int + after_s)
 
     query = f'{{{loki_label}="{service}"}}'
-    return await _query_range(client, query, start, end, limit)
+    return await _query_range(client, query, start, end, limit, tool_name="loki.query_logs_around_time")
 
 
 async def summarize_log_patterns(

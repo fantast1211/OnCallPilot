@@ -27,14 +27,26 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
+    # Priority 1: ONCALLPILOT_DATABASE_URL (backward compat / explicit override)
     url = os.environ.get("ONCALLPILOT_DATABASE_URL", "")
-    if not url:
-        raise RuntimeError(
-            "ONCALLPILOT_DATABASE_URL environment variable is not set. "
-            "Set it to a PostgreSQL connection string, e.g. "
-            "postgresql+asyncpg://user:pass@host:5432/dbname"
-        )
-    return url
+    if url:
+        return url
+
+    # Priority 2: Read from ONCALLPILOT_CONFIG YAML
+    config_path = os.environ.get("ONCALLPILOT_CONFIG", "")
+    if config_path:
+        import yaml
+        from pathlib import Path
+        with Path(config_path).open() as fh:
+            data = yaml.safe_load(fh)
+        pg_url = (data.get("datasources", {}).get("postgres", {}).get("url", ""))
+        if pg_url:
+            return pg_url
+
+    raise RuntimeError(
+        "Cannot determine database URL. Set ONCALLPILOT_DATABASE_URL or "
+        "ensure ONCALLPILOT_CONFIG points to a YAML with datasources.postgres.url"
+    )
 
 
 # ---------------------------------------------------------------------------

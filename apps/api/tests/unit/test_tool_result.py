@@ -25,13 +25,13 @@ class TestToolResultCreation:
         assert result.status == "error"
         assert result.error_message == "connection refused"
 
-    def test_partial_result(self):
-        result = ToolResult(
-            status="partial",
-            data={"logs": ["line1"]},
-            summary="Retrieved 1 of 5 log lines before timeout",
-        )
-        assert result.status == "partial"
+    def test_partial_result_rejected(self):
+        with pytest.raises(ValidationError, match="status"):
+            ToolResult(
+                status="partial",
+                data={"logs": ["line1"]},
+                summary="Retrieved 1 of 5 log lines before timeout",
+            )
 
     def test_raw_output_ref(self):
         result = ToolResult(

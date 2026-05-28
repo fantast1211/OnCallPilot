@@ -30,7 +30,7 @@ class TestStatusConstants:
         assert INCIDENT_STATUSES == {"open", "investigating", "resolved", "error"}
 
     def test_investigation_session_statuses(self):
-        assert INVESTIGATION_SESSION_STATUSES == {"active", "completed", "failed"}
+        assert INVESTIGATION_SESSION_STATUSES == {"pending", "running", "completed", "failed"}
 
     def test_chat_session_statuses(self):
         assert CHAT_SESSION_STATUSES == {"active", "completed"}

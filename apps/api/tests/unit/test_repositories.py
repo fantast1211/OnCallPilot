@@ -130,7 +130,7 @@ class TestCreateIncidentWithFingerprintDedup:
     async def test_creates_new_incident(self, db_session: AsyncSession):
         from oncallpilot_api.db.repositories import create_incident_with_fingerprint_dedup
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, created = await create_incident_with_fingerprint_dedup(
             db_session,
             fingerprint="fp-001",
             severity="critical",
@@ -144,29 +144,32 @@ class TestCreateIncidentWithFingerprintDedup:
         assert incident.severity == "critical"
         assert incident.status == "open"
         assert incident.service == "api-gateway"
+        assert created is True
 
     async def test_dedup_returns_existing_open_incident(self, db_session: AsyncSession):
         from oncallpilot_api.db.repositories import create_incident_with_fingerprint_dedup
 
-        first = await create_incident_with_fingerprint_dedup(
+        first, created1 = await create_incident_with_fingerprint_dedup(
             db_session, fingerprint="fp-dup", severity="warning",
         )
-        second = await create_incident_with_fingerprint_dedup(
+        second, created2 = await create_incident_with_fingerprint_dedup(
             db_session, fingerprint="fp-dup", severity="critical",
         )
         assert first.id == second.id
         assert second.status == "open"
+        assert created1 is True
+        assert created2 is False
 
     async def test_dedup_creates_new_after_resolved(self, db_session: AsyncSession):
         from oncallpilot_api.db.repositories import create_incident_with_fingerprint_dedup, mark_incident_resolved
 
-        first = await create_incident_with_fingerprint_dedup(
+        first, _c1 = await create_incident_with_fingerprint_dedup(
             db_session, fingerprint="fp-resolved", severity="warning",
         )
         await mark_incident_resolved(db_session, first.id)
         await db_session.flush()
 
-        second = await create_incident_with_fingerprint_dedup(
+        second, _c2 = await create_incident_with_fingerprint_dedup(
             db_session, fingerprint="fp-resolved", severity="critical",
         )
         assert second.id != first.id
@@ -185,7 +188,7 @@ class TestCreateInvestigationSession:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fingerprint="fp-sess", severity="critical",
         )
         session = await create_investigation_session(
@@ -193,7 +196,7 @@ class TestCreateInvestigationSession:
         )
         assert session.id is not None
         assert session.incident_id == incident.id
-        assert session.status == "active"
+        assert session.status == "pending"
         assert session.metadata_ == {"trigger": "alert"}
 
 
@@ -210,7 +213,7 @@ class TestAppendToolCall:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-tc", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -234,7 +237,7 @@ class TestAppendToolCall:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-tc-chat", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -261,7 +264,7 @@ class TestMarkIncidentResolved:
             mark_incident_resolved,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-res", severity="critical",
         )
         result = await mark_incident_resolved(db_session, incident.id)
@@ -326,7 +329,7 @@ class TestGetInvestigationDetail:
             get_investigation_detail,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-detail", severity="critical", service="payments",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -364,7 +367,7 @@ class TestChatSessionAndMessages:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-chat", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -381,7 +384,7 @@ class TestChatSessionAndMessages:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-msg", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -401,7 +404,7 @@ class TestChatSessionAndMessages:
             create_investigation_session,
         )
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-multi", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)

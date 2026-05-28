@@ -16,3 +16,15 @@ def get_settings() -> Settings:
 
 def get_config(settings: Settings = Depends(get_settings)) -> Settings:
     return settings
+
+
+def get_event_bus():
+    """Factory for EventBus — defaults to NoOp, Phase 4 swaps in Redis."""
+    from oncallpilot_api.services.event_bus import NoOpEventBus
+    return NoOpEventBus()
+
+
+def get_tracer():
+    """Factory for Tracer — defaults to NoOp, Phase 7 swaps in Langfuse."""
+    from oncallpilot_api.observability.tracer import NoOpTracer
+    return NoOpTracer()

@@ -223,3 +223,4 @@ network-topology.md
 # AI Agent development guide (local only)
 AGENTS.md
 开发环境说明.md
+config/oncallpilot.yaml

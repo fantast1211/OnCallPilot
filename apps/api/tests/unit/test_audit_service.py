@@ -5,7 +5,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from sqlalchemy import event, JSON, String
+from sqlalchemy import Column, MetaData, Table, event, JSON, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -26,7 +27,35 @@ async def db_session():
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
-    test_metadata = Base.metadata
+    # Clone metadata and adapt PostgreSQL types for SQLite
+    test_metadata = MetaData()
+    for table in Base.metadata.tables.values():
+        new_cols = []
+        for col in table.columns:
+            col_type = col.type
+            type_name = type(col_type).__name__
+            if type_name == "UUID":
+                col_type = String(36)
+            elif type_name == "JSONB":
+                col_type = JSON()
+            new_cols.append(col.copy())
+            new_cols[-1].type = col_type
+        Table(table.name, test_metadata, *new_cols)
+
+    # Copy constraints/indexes, skipping partial indexes
+    for table_name, table in Base.metadata.tables.items():
+        test_table = test_metadata.tables[table_name]
+        for idx in table.indexes:
+            if idx.dialect_options.get("postgresql", {}).get("where"):
+                continue
+            idx.copy(target_table=test_table)
+        for const in table.constraints:
+            if hasattr(const, "copy"):
+                try:
+                    const.copy(target_table=test_table)
+                except Exception:
+                    pass
+
     async with engine.begin() as conn:
         await conn.run_sync(test_metadata.create_all)
 
@@ -64,7 +93,7 @@ class TestRecordToolCallValidation:
         )
         from oncallpilot_api.services.audit_service import record_tool_call
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-unit-audit", severity="critical",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)
@@ -91,7 +120,7 @@ class TestRecordToolCallValidation:
         )
         from oncallpilot_api.services.audit_service import record_tool_call
 
-        incident = await create_incident_with_fingerprint_dedup(
+        incident, _created = await create_incident_with_fingerprint_dedup(
             db_session, fp="fp-unit-chat", severity="high",
         )
         inv = await create_investigation_session(db_session, incident_id=incident.id)

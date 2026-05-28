@@ -30,18 +30,20 @@ async def create_incident_with_fingerprint_dedup(
     description: str | None = None,
     started_at: datetime | None = None,
     fp: str | None = None,
-) -> Incident:
+) -> tuple[Incident, bool]:
     """Create an incident, deduplicating by fingerprint for open/investigating incidents.
 
     If an incident with the same fingerprint already exists in 'open' or
-    'investigating' status, returns the existing one. Otherwise creates a new
-    incident.
+    'investigating' status, updates last_seen_at and returns (existing, False).
+    Otherwise creates a new incident and returns (new_incident, True).
 
     ``fp`` is accepted as a shorthand alias for ``fingerprint``.
     """
     effective_fp = fp or fingerprint
     if effective_fp is None:
         raise TypeError("Either 'fingerprint' or 'fp' must be provided")
+
+    now = datetime.now(timezone.utc)
 
     # Check for existing open/investigating incident with same fingerprint
     stmt = select(Incident).where(
@@ -51,7 +53,9 @@ async def create_incident_with_fingerprint_dedup(
     result = await db.execute(stmt)
     existing = result.scalars().first()
     if existing is not None:
-        return existing
+        existing.last_seen_at = now
+        await db.flush()
+        return existing, False
 
     incident = Incident(
         id=uuid.uuid4(),
@@ -63,10 +67,11 @@ async def create_incident_with_fingerprint_dedup(
         description=description,
         started_at=started_at,
         status="open",
+        last_seen_at=now,
     )
     db.add(incident)
     await db.flush()
-    return incident
+    return incident, True
 
 
 async def create_investigation_session(
@@ -79,7 +84,7 @@ async def create_investigation_session(
     session = InvestigationSession(
         id=uuid.uuid4(),
         incident_id=incident_id,
-        status="active",
+        status="pending",
         metadata_=metadata_,
     )
     db.add(session)

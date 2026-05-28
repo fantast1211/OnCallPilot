@@ -26,7 +26,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 # ---------------------------------------------------------------------------
 
 INCIDENT_STATUSES: set[str] = {"open", "investigating", "resolved", "error"}
-INVESTIGATION_SESSION_STATUSES: set[str] = {"active", "completed", "failed"}
+INVESTIGATION_SESSION_STATUSES: set[str] = {"pending", "running", "completed", "failed"}
 CHAT_SESSION_STATUSES: set[str] = {"active", "completed"}
 CHAT_MESSAGE_ROLES: set[str] = {"user", "assistant", "system"}
 TOOL_CALL_STATUSES: set[str] = {"pending", "running", "success", "failed"}
@@ -63,6 +63,10 @@ class Incident(Base):
     description: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_reason: Mapped[str | None] = mapped_column(Text)
+    reopen_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -99,8 +103,9 @@ class InvestigationSession(Base):
         UUID(as_uuid=True), ForeignKey("incidents.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="active"
+        String(32), nullable=False, default="pending"
     )
+    job_id: Mapped[str | None] = mapped_column(String(256))
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -198,6 +203,10 @@ class ToolCall(Base):
         String(32), nullable=False, default="pending"
     )
     step_index: Mapped[int | None] = mapped_column(Integer)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

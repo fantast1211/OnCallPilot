@@ -30,13 +30,14 @@ class PromClient:
         return resp.json()
 
 
-def _check_prom_response(body: dict[str, Any]) -> ToolResult | None:
+def _check_prom_response(body: dict[str, Any], tool_name: str) -> ToolResult | None:
     if body.get("status") == "error":
         error = body.get("error", "unknown Prometheus error")
         return ToolResult(
             status="error",
             data=body,
             summary=f"Prometheus error: {error}",
+            tool_name=tool_name,
             error_message=error,
         )
     return None
@@ -59,10 +60,11 @@ async def instant_query(
             status="error",
             data=None,
             summary=f"Prometheus request failed: {exc}",
+            tool_name="prometheus.instant_query",
             error_message=str(exc),
         )
 
-    if err := _check_prom_response(body):
+    if err := _check_prom_response(body, "prometheus.instant_query"):
         return err
 
     data = body.get("data")
@@ -71,6 +73,7 @@ async def instant_query(
         status="success",
         data=data,
         summary=f"Instant query returned {result_count} series",
+        tool_name="prometheus.instant_query",
     )
 
 
@@ -96,10 +99,11 @@ async def range_query(
             status="error",
             data=None,
             summary=f"Prometheus request failed: {exc}",
+            tool_name="prometheus.range_query",
             error_message=str(exc),
         )
 
-    if err := _check_prom_response(body):
+    if err := _check_prom_response(body, "prometheus.range_query"):
         return err
 
     data = body.get("data")
@@ -108,4 +112,5 @@ async def range_query(
         status="success",
         data=data,
         summary=f"Range query returned {result_count} series",
+        tool_name="prometheus.range_query",
     )
