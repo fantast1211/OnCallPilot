@@ -146,11 +146,86 @@ async def list_recent_incidents(
     db: AsyncSession,
     *,
     limit: int = 20,
+    status: str | None = None,
+    service: str | None = None,
 ) -> list[Incident]:
-    """Return the most recent incidents ordered by creation time (newest first)."""
-    stmt = select(Incident).order_by(Incident.created_at.desc()).limit(limit)
+    """Return the most recent incidents ordered by creation time (newest first).
+
+    Optionally filter by status and/or service.
+    """
+    stmt = select(Incident)
+    if status is not None:
+        stmt = stmt.where(Incident.status == status)
+    if service is not None:
+        stmt = stmt.where(Incident.service == service)
+    stmt = stmt.order_by(Incident.created_at.desc()).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def count_incidents(
+    db: AsyncSession,
+    *,
+    status: str | None = None,
+    service: str | None = None,
+) -> int:
+    """Count incidents with optional filters."""
+    from sqlalchemy import func as sqlfunc
+
+    stmt = select(sqlfunc.count()).select_from(Incident)
+    if status is not None:
+        stmt = stmt.where(Incident.status == status)
+    if service is not None:
+        stmt = stmt.where(Incident.service == service)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+async def get_incident_detail(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+) -> Incident | None:
+    """Load an incident with its investigation sessions eagerly."""
+    stmt = (
+        select(Incident)
+        .where(Incident.id == incident_id)
+        .options(selectinload(Incident.investigation_sessions))
+    )
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+
+async def close_incident(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    reason: str,
+) -> Incident | None:
+    """Close an incident. Returns the updated incident or None if not found."""
+    incident = await db.get(Incident, incident_id)
+    if incident is None:
+        return None
+    incident.status = "resolved"
+    incident.closed_at = datetime.now(timezone.utc)
+    incident.closed_reason = reason
+    await db.flush()
+    return incident
+
+
+async def reopen_incident(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    reason: str,
+) -> Incident | None:
+    """Reopen an incident. Returns the updated incident or None if not found."""
+    incident = await db.get(Incident, incident_id)
+    if incident is None:
+        return None
+    incident.status = "open"
+    incident.reopen_count = (incident.reopen_count or 0) + 1
+    incident.closed_at = None
+    incident.closed_reason = None
+    await db.flush()
+    return incident
 
 
 async def get_investigation_detail(
