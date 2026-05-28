@@ -1,0 +1,28 @@
+[project]
+name = "oncallpilot-worker"
+version = "0.1.0"
+description = "OnCallPilot arq worker — async job execution"
+requires-python = ">=3.12"
+dependencies = [
+    "arq>=0.25",
+    "pydantic-settings>=2.2",
+    "structlog>=24.1",
+    "oncallpilot-api",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+oncallpilot-api = { path = "../api" }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
